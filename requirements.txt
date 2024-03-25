@@ -1,0 +1,3 @@
+streamlit
+git+https://github.com/InseeFrLab/ca-document-querier.git
+git+https://github.com/InseeFrLab/extraction-comptes-sociaux.git
