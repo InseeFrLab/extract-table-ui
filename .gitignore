@@ -1,9 +1,3 @@
-# data
-app/data/input_pdf/*
-app/data/output_xlsx/*
-!app/data/input_pdf/.gitkeep
-!app/data/output_xlsx/.gitkeep
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
