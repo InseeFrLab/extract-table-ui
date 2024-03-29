@@ -6,7 +6,7 @@ import base64
 import os
 import tempfile
 from pathlib import Path
-
+from ExtractTable import ExtractTable
 import fitz
 import img2pdf
 import numpy as np
@@ -55,7 +55,9 @@ def download_pdf(_document_querier, document_id):
 
 # Create the Streamlit app
 st.set_page_config(layout="wide")
-st.title("Récupération des comptes sociaux")
+col1, col2 = st.columns(2)
+with col1 :
+    st.title("Récupération des comptes sociaux")
 
 # Document querier
 document_querier = DocumentQuerier(
@@ -194,7 +196,6 @@ files = list_files(directory_path)
 selected_table = st.sidebar.selectbox(label="Tableaux", options=files)
 st.column_config.Column(width="large")
 if selected_table:
-    st.write(selected_table)
     table = pd.read_excel(
         f'{os.path.join("data/output_xlsx/", selected_table.split("--")[0], selected_table)}.xlsx',
         index_col=0,
@@ -208,17 +209,19 @@ if selected_table:
     table = pd.DataFrame(table)
     confidence_table = confidence_table.values.tolist()
     confidence_table = pd.DataFrame(confidence_table).replace(0.0, np.nan)
-    st.write(
-        f"Taux de confiance d'extraction des cellules: [min={confidence_table.min(axis=None)}, max={confidence_table.max(axis=None)}]"
-    )
-    col1, col2 = st.columns(2)
     with col1:
+        st.write(selected_table)
+        st.write(
+            f"Taux de confiance d'extraction des cellules: [min={confidence_table.min(axis=None)}, max={confidence_table.max(axis=None)}]"
+        )
         new_table = table.style.background_gradient(
             axis=None, gmap=confidence_table, cmap="Reds"
         )
-        st.dataframe(new_table)
+        st.dataframe(new_table, height=800, use_container_width=True, hide_index=True)
     with col2:
-        from streamlit_pdf_viewer import pdf_viewer
+        # et_sess = ExtractTable(api_key="")        # Replace your VALID API Key here
+        # usage = et_sess.check_usage()
+        # st.markdown(f'<div style="text-align: right;">Crédits utilisés : {usage["used"]}/{usage["credits"]}</div>', unsafe_allow_html=True)
 
         file = f'{os.path.join("data/input_pdf", selected_table.split("--")[0])}.pdf'
 
