@@ -2,5 +2,6 @@ streamlit
 fastapi
 openpyxl
 img2pdf
+ExtractTable
 # git+https://github.com/InseeFrLab/ca-document-querier.git
 # git+https://github.com/InseeFrLab/extraction-comptes-sociaux.git

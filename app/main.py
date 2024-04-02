@@ -15,8 +15,7 @@ import streamlit as st
 from ca_query.querier import DocumentQuerier
 from PIL import Image
 
-from utils import (check_siren_length, get_detector, get_page_selector,
-                   pdf_to_csv)
+from utils import check_siren_length, get_detector, get_page_selector, pdf_to_csv
 
 
 @st.cache_data
@@ -56,7 +55,7 @@ def download_pdf(_document_querier, document_id):
 # Create the Streamlit app
 st.set_page_config(layout="wide")
 col1, col2 = st.columns(2)
-with col1 :
+with col1:
     st.title("Récupération des comptes sociaux")
 
 # Document querier
@@ -132,43 +131,74 @@ with st.sidebar.container():
                                     )
                                 )
                                 zip_buffer = pdf_to_csv(document, company_id)
-                                pdf = fitz.open(
-                                    os.path.join(
-                                        "data", "input_pdf", f"{company_id}.pdf"
+                                pdf = fitz.open(stream=PDFbyte, filetype="pdf")
+                                if page_number <= pdf.page_count - 3:
+                                    number_extracted_pages = 3
+                                    pdf.select(
+                                        [
+                                            page
+                                            for page in range(
+                                                page_number, page_number + 3
+                                            )
+                                        ]
                                     )
-                                )
-                                page = pdf.load_page(0)
-                                pix = page.get_pixmap(dpi=300)
-                                pix.pil_save(
-                                    os.path.join(
-                                        "data", "input_pdf", f"{company_id}.jpg"
+                                elif page_number <= pdf.page_count - 2:
+                                    number_extracted_pages = 2
+                                    pdf.select(
+                                        [
+                                            page
+                                            for page in range(
+                                                page_number, page_number + 2
+                                            )
+                                        ]
                                     )
-                                )
+                                else:
+                                    number_extracted_pages = 1
+                                    pdf.select([page_number])
+                                for page_number in range(pdf.page_count):
+                                    page = pdf.load_page(page_number)
+                                    pix = page.get_pixmap(dpi=300)
+                                    pix.pil_save(
+                                        os.path.join(
+                                            "data",
+                                            "input_pdf",
+                                            f"{company_id}--{page_number}.jpg",
+                                        )
+                                    )
                                 os.remove(
                                     os.path.join(
                                         "data", "input_pdf", f"{company_id}.pdf"
                                     )
                                 )
-                                image = Image.open(
-                                    os.path.join(
-                                        "data", "input_pdf", f"{company_id}.jpg"
-                                    )
-                                )
-                                pdf_bytes = img2pdf.convert(image.filename)
-                                file = open(
+
+                                with open(
                                     os.path.join(
                                         "data", "input_pdf", f"{company_id}.pdf"
                                     ),
                                     "wb",
-                                )
-                                file.write(pdf_bytes)
-                                image.close()
-                                file.close()
-                                os.remove(
-                                    os.path.join(
-                                        "data", "input_pdf", f"{company_id}.jpg"
+                                ) as f:
+                                    f.write(
+                                        img2pdf.convert(
+                                            [
+                                                os.path.join(
+                                                    "data",
+                                                    "input_pdf",
+                                                    f"{company_id}--{page_number}.jpg",
+                                                )
+                                                for page_number in range(
+                                                    number_extracted_pages
+                                                )
+                                            ]
+                                        )
                                     )
-                                )
+                                for page_number in range(number_extracted_pages):
+                                    os.remove(
+                                        os.path.join(
+                                            "data",
+                                            "input_pdf",
+                                            f"{company_id}--{page_number}.jpg",
+                                        )
+                                    )
                                 st.download_button(
                                     label="Télécharger les résultats",
                                     data=zip_buffer,
@@ -210,18 +240,36 @@ if selected_table:
     confidence_table = confidence_table.values.tolist()
     confidence_table = pd.DataFrame(confidence_table).replace(0.0, np.nan)
     with col1:
-        st.write(selected_table)
+        col3, col4 = st.columns(2)
+        with col3:
+            st.write(selected_table)
         st.write(
             f"Taux de confiance d'extraction des cellules: [min={confidence_table.min(axis=None)}, max={confidence_table.max(axis=None)}]"
         )
+        with col4:
+            st.download_button(
+                label="Export du tableau",
+                data=table.to_csv(sep=";").encode("utf_8_sig"),
+                file_name="selected_table.csv",
+                mime="text/csv",
+            )
         new_table = table.style.background_gradient(
             axis=None, gmap=confidence_table, cmap="Reds"
         )
         st.dataframe(new_table, height=800, use_container_width=True, hide_index=True)
+        edited_df = st.data_editor(
+            table.style.background_gradient(
+                axis=None, gmap=confidence_table, cmap="Reds"
+            )
+        )
+
     with col2:
-        # et_sess = ExtractTable(api_key="")        # Replace your VALID API Key here
-        # usage = et_sess.check_usage()
-        # st.markdown(f'<div style="text-align: right;">Crédits utilisés : {usage["used"]}/{usage["credits"]}</div>', unsafe_allow_html=True)
+        et_sess = ExtractTable(api_key="")  # Replace your VALID API Key here
+        usage = et_sess.check_usage()
+        st.markdown(
+            f'<div style="text-align: right;">Crédits utilisés : {usage["used"]}/{usage["credits"]}</div>',
+            unsafe_allow_html=True,
+        )
 
         file = f'{os.path.join("data/input_pdf", selected_table.split("--")[0])}.pdf'
 
