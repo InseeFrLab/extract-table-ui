@@ -56,7 +56,7 @@ def download_pdf(_document_querier, document_id):
 st.set_page_config(layout="wide")
 col1, col2 = st.columns(2)
 with col1:
-    st.title("Récupération des comptes sociaux")
+    st.subheader("Récupération des comptes sociaux")
 
 # Document querier
 document_querier = DocumentQuerier(
@@ -221,9 +221,20 @@ def list_files(directory):
     return file_list
 
 
+def change_state(edited_df):
+    st.session_state["df_value"] = edited_df
+    st.session_state["disable"] = False
+
+
+def disable_button():
+    st.session_state["disable"] = True
+
+
 directory_path = "data/output_xlsx/"
 files = list_files(directory_path)
-selected_table = st.sidebar.selectbox(label="Tableaux", options=files)
+selected_table = st.sidebar.selectbox(
+    label="Tableaux", options=files, on_change=disable_button
+)
 st.column_config.Column(width="large")
 if selected_table:
     table = pd.read_excel(
@@ -240,31 +251,75 @@ if selected_table:
     confidence_table = confidence_table.values.tolist()
     confidence_table = pd.DataFrame(confidence_table).replace(0.0, np.nan)
     with col1:
-        col3, col4 = st.columns(2)
-        with col3:
-            st.write(selected_table)
         st.write(
-            f"Taux de confiance d'extraction des cellules: [min={confidence_table.min(axis=None)}, max={confidence_table.max(axis=None)}]"
+            f"{selected_table} : Confiance = [{confidence_table.min(axis=None)} - {confidence_table.max(axis=None)}]"
         )
-        with col4:
+        col5, col6, col7, col8, col9 = st.columns(5)
+        with col5:
+            value_info = st.text_input(
+                label="", value="ligne col val à changer", label_visibility="collapsed"
+            )
+        with col6:
+            if st.button(label="Modifier"):
+                try:
+                    row, col, value = (
+                        value_info.split()[0],
+                        value_info.split()[1],
+                        " ".join(value_info.split()[2:]),
+                    )
+                    row = int(row)
+                    col = int(col)
+                    table.iat[row, col] = value
+                    table.to_excel(
+                        f'{os.path.join("data/output_xlsx/", selected_table.split("--")[0], selected_table)}.xlsx'
+                    )
+                    st.session_state.df_value = table
+                except:
+                    st.error("ligne colonne ou valeur au mauvais format")
+        new_table = table.style.background_gradient(
+            axis=None, gmap=confidence_table, cmap="Reds"
+        )
+        with col7:
+            edition_tableau = st.toggle(label="Edition")
+        with col8:
             st.download_button(
-                label="Export du tableau",
+                label="Export",
                 data=table.to_csv(sep=";").encode("utf_8_sig"),
                 file_name="selected_table.csv",
                 mime="text/csv",
             )
-        new_table = table.style.background_gradient(
-            axis=None, gmap=confidence_table, cmap="Reds"
-        )
-        st.dataframe(new_table, height=800, use_container_width=True, hide_index=True)
-        edited_df = st.data_editor(
-            table.style.background_gradient(
-                axis=None, gmap=confidence_table, cmap="Reds"
+        if edition_tableau:
+            # if "df_value" not in st.session_state:
+            st.session_state.df_value = table
+            if "disable" not in st.session_state:
+                st.session_state.disable = True
+            edited_table = st.session_state["df_value"]
+            edited_table = st.data_editor(
+                edited_table, on_change=change_state, args=(edited_table,)
             )
-        )
+            with col9:
+                placeholder = st.empty()
+                save_btn = placeholder.button(
+                    label="Save", disabled=st.session_state.disable, key=1
+                )
+                if save_btn:
+                    placeholder.button(label="Save", disabled=True, key=2)
+                    edited_table.to_excel(
+                        f'{os.path.join("data/output_xlsx/", selected_table.split("--")[0], selected_table)}.xlsx'
+                    )
+                    st.session_state["df_value"] = edited_table
+        else:
+            st.session_state.disable = True
+            with col9:
+                pass
+            st.dataframe(
+                new_table, height=800, use_container_width=True, hide_index=False
+            )
 
     with col2:
-        et_sess = ExtractTable(api_key="")  # Replace your VALID API Key here
+        et_sess = ExtractTable(
+            api_key=""
+        )  # Replace your VALID API Key here
         usage = et_sess.check_usage()
         st.markdown(
             f'<div style="text-align: right;">Crédits utilisés : {usage["used"]}/{usage["credits"]}</div>',
