@@ -1,7 +1,7 @@
 """
 Utility functions.
 """
-from typing import List
+from typing import List, Tuple
 import io
 import json
 import os
@@ -13,6 +13,7 @@ import mlflow
 import pandas as pd
 import requests
 import streamlit as st
+import fitz
 from ca_extract.extraction.table_transformer.detector import \
     TableTransformerDetector
 from ca_extract.extraction.table_transformer.extractor import \
@@ -20,6 +21,59 @@ from ca_extract.extraction.table_transformer.extractor import \
 from ca_extract.page_selection.page_selector import PageSelector
 import base64
 import tempfile
+from ca_query.querier import DocumentQuerier
+
+
+@st.cache_data
+def check_availability(_document_querier: DocumentQuerier, company_id: str, year: str) -> Tuple:
+    """
+    Check if a document is available for a given company and year.
+
+    Args:
+        _document_querier (DocumentQuerier): Document querier.
+        company_id (str): Company identifier.
+        year (str): Year.
+
+    Returns:
+        Tuple: Availability status and document ID.
+    """
+    try:
+        # Make an API request to check availability for each document
+        availability, document_id = _document_querier.check_document_availability(
+            company_id, year
+        )
+    except KeyError:
+        # KeyError lorsque pas de clé "bilans" pour le SIREN
+        # TODO: différence entre SIREN qui n'existe pas et SIREN qui existe ?
+        # Retour 404 vs. 200, plutôt que catch la KeyError
+        availability = False
+        document_id = None
+    # TODO: update token if necessary ?
+    return availability, document_id
+
+
+@st.cache_data
+def download_pdf(_document_querier: DocumentQuerier, document_id: str):
+    """
+    Download a PDF document from its ID.
+
+    Args:
+        _document_querier (DocumentQuerier): Document querier.
+        document_id (str): Document ID.
+    """
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmp_dir = Path(tmpdirname)
+        tmp_file_path = tmp_dir / "tmp.pdf"
+        _document_querier.download_from_id(
+            document_id, save_path=tmp_file_path, s3=False
+        )
+
+        with open(tmp_file_path, "rb") as pdf_file:
+            PDFbyte = pdf_file.read()
+        # Also return fitz Document ? Probleme can't cache
+    if len(PDFbyte) < 10000:
+        print(PDFbyte)
+    return PDFbyte
 
 
 @st.cache_resource
@@ -117,10 +171,12 @@ def list_files(fs: S3FileSystem, s3_path: str) -> List:
         List: List of files.
     """
     files = []
-    for file in fs.ls(s3_path):
-        if Path(file).name == ".keep":
-            continue
-        files.append(Path(file).name)
+    for dir_path, dir_names, file_names in fs.walk(s3_path):
+        for file_name in file_names:
+            if Path(file_name).name == ".keep":
+                continue
+            file_path = f'{dir_path}/{file_name}'
+            files.append(file_path)
     return files
 
 
@@ -256,10 +312,50 @@ def read_excel_from_s3(
     Returns:
         pd.DataFrame: Excel file as DataFrame.
     """
+    # Check file extension
+    if not s3_path.endswith(".xlsx"):
+        raise ValueError("File must be an Excel file.")
     with tempfile.TemporaryDirectory() as temp_dir:
         # Download the Excel file from S3 to the temporary directory
-        local_path = fs.get(s3_path, temp_dir)
+        local_path = os.path.join(temp_dir, 'tmp_file.xlsx')
+        fs.get(s3_path, local_path)
 
         # Read the Excel file using pandas
-        df = pd.read_excel(local_path)
+        df = pd.read_excel(local_path, index_col=0)
     return df
+
+
+def upload_pdf_to_s3(document: fitz.Document, fs: S3FileSystem, s3_path: str):
+    """
+    Upload a PDF document to S3.
+
+    Args:
+        document (fitz.Document): Document.
+        fs (S3FileSystem): S3 file system.
+        s3_path (str): S3 path.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        local_path = os.path.join(temp_dir, 'tmp_file.pdf')
+        document.save(
+            local_path
+        )
+        fs.put(local_path, s3_path)
+        return
+
+
+def read_pdf_from_s3(fs: S3FileSystem, s3_path: str):
+    """
+    Read PDF file from S3.
+
+    Args:
+        fs (S3FileSystem): S3 file system.
+        s3_path (str): S3 path.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Download the PDF file from S3 to the temporary directory
+        local_path = os.path.join(temp_dir, 'tmp_file.pdf')
+        fs.get(s3_path, local_path)
+
+        # Read the PDF file using fitz
+        document = fitz.open(local_path)
+    return document

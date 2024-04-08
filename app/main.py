@@ -19,56 +19,6 @@ from utils import check_siren_length, get_detector, get_page_selector, pdf_to_cs
 from constants import S3_OUTPUT_XLSX_DIR
 
 
-@st.cache_data
-def check_availability(_document_querier: DocumentQuerier, company_id: str, year: str) -> Tuple:
-    """
-    Check if a document is available for a given company and year.
-
-    Args:
-        _document_querier (DocumentQuerier): Document querier.
-        company_id (str): Company identifier.
-        year (str): Year.
-
-    Returns:
-        Tuple: Availability status and document ID.
-    """
-    try:
-        # Make an API request to check availability for each document
-        availability, document_id = document_querier.check_document_availability(
-            company_id, year
-        )
-    except KeyError:
-        # KeyError lorsque pas de clé "bilans" pour le SIREN
-        # TODO: différence entre SIREN qui n'existe pas et SIREN qui existe ?
-        # Retour 404 vs. 200, plutôt que catch la KeyError
-        availability = False
-        document_id = None
-    # TODO: update token if necessary ?
-    return availability, document_id
-
-
-@st.cache_data
-def download_pdf(_document_querier: DocumentQuerier, document_id: str):
-    """
-    Download a PDF document from its ID.
-
-    Args:
-        _document_querier (DocumentQuerier): Document querier.
-        document_id (str): Document ID.
-    """
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        tmp_dir = Path(tmpdirname)
-        tmp_file_path = tmp_dir / "tmp.pdf"
-        document_querier.download_from_id(
-            document_id, save_path=tmp_file_path, s3=False
-        )
-
-        with open(tmp_file_path, "rb") as pdf_file:
-            PDFbyte = pdf_file.read()
-        # Also return fitz Document ? Probleme can't cache
-    if len(PDFbyte) < 10000:
-        print(PDFbyte)
-    return PDFbyte
 
 
 # Create the Streamlit app
@@ -77,27 +27,9 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("Récupération des comptes sociaux")
 
-# Document querier
-document_querier = DocumentQuerier(
-    os.environ["TEST_INPI_USERNAME"], os.environ["TEST_INPI_PASSWORD"]
-)
-detector = get_detector()
-page_selector = get_page_selector()
-fs = get_file_system()
 
-with st.sidebar.container():
-    # Allow users to input year
-    year = st.text_area(
-        label="Entrez l'année pour laquelle vous souhaitez vérifier"
-        "la disponibilité du document",
-        value="2021",
-        max_chars=4,
-    )
 
-    # Allow users to input multiple document IDs
-    company_ids = st.text_area("Entrez les numéros Siren (séparés d'un espace):")
-    # Split the user input into a list of document IDs
-    company_ids = company_ids.split()
+    
 
     # Add a button to check availability for all specified documents
 
