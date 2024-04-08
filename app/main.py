@@ -1,7 +1,7 @@
 """
 Dashboard app.
 """
-
+from typing import Tuple
 import base64
 import os
 import tempfile
@@ -15,11 +15,23 @@ import streamlit as st
 from ca_query.querier import DocumentQuerier
 from PIL import Image
 
-from utils import check_siren_length, get_detector, get_page_selector, pdf_to_csv
+from utils import check_siren_length, get_detector, get_page_selector, pdf_to_csv, disable_button, list_files, get_file_system
+from constants import S3_OUTPUT_XLSX_DIR
 
 
 @st.cache_data
-def check_availability(_document_querier, company_id, year):
+def check_availability(_document_querier: DocumentQuerier, company_id: str, year: str) -> Tuple:
+    """
+    Check if a document is available for a given company and year.
+
+    Args:
+        _document_querier (DocumentQuerier): Document querier.
+        company_id (str): Company identifier.
+        year (str): Year.
+
+    Returns:
+        Tuple: Availability status and document ID.
+    """
     try:
         # Make an API request to check availability for each document
         availability, document_id = document_querier.check_document_availability(
@@ -36,7 +48,14 @@ def check_availability(_document_querier, company_id, year):
 
 
 @st.cache_data
-def download_pdf(_document_querier, document_id):
+def download_pdf(_document_querier: DocumentQuerier, document_id: str):
+    """
+    Download a PDF document from its ID.
+
+    Args:
+        _document_querier (DocumentQuerier): Document querier.
+        document_id (str): Document ID.
+    """
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmp_dir = Path(tmpdirname)
         tmp_file_path = tmp_dir / "tmp.pdf"
@@ -64,6 +83,7 @@ document_querier = DocumentQuerier(
 )
 detector = get_detector()
 page_selector = get_page_selector()
+fs = get_file_system()
 
 with st.sidebar.container():
     # Allow users to input year
@@ -212,48 +232,41 @@ with st.sidebar.container():
                         )
 
 
-def list_files(directory):
-    file_list = []
-    for root, directories, files in os.walk(directory):
-        for filename in files:
-            if "confidence" not in filename and "gitkeep" not in filename:
-                file_list.append(filename[:-5])
-    return file_list
-
-
-def change_state(edited_df):
-    st.session_state["df_value"] = edited_df
-    st.session_state["disable"] = False
-
-
-def disable_button():
-    st.session_state["disable"] = True
-
-
-directory_path = "data/output_xlsx/"
-files = list_files(directory_path)
+files = list_files(fs=fs, s3_path=S3_OUTPUT_XLSX_DIR)
 selected_table = st.sidebar.selectbox(
     label="Tableaux", options=files, on_change=disable_button
 )
 st.column_config.Column(width="large")
 if selected_table:
-    table = pd.read_excel(
-        f'{os.path.join("data/output_xlsx/", selected_table.split("--")[0], selected_table)}.xlsx',
-        index_col=0,
-    )
-    table.fillna("", inplace=True)
-    confidence_table = pd.read_excel(
-        f'{os.path.join("data/output_xlsx/", selected_table.split("--")[0], selected_table)}_confidence.xlsx',
-        index_col=0,
-    )
-    table = table.values.tolist()
-    table = pd.DataFrame(table)
-    confidence_table = confidence_table.values.tolist()
-    confidence_table = pd.DataFrame(confidence_table).replace(0.0, np.nan)
+    # Load pandas DataFrames from xlsx files stored in S3
+    extraction_path = S3_OUTPUT_XLSX_DIR / selected_table
+    confidence_path = S3_OUTPUT_CONFIDENCE_DIR / selected_table
+
+    with fs.open(extraction_path, "rb") as f:
+        extraction = pd.read_excel(f, index_col=0)
+        extraction.fillna("", inplace=True)
+        extraction = extraction.values.tolist()
+        extraction = pd.DataFrame(extraction)
+    # TODO: when no confidence available, display a message
+    with fs.open(confidence_path, "rb") as f:
+        confidence = pd.read_excel(f, index_col=0)
+        confidence = confidence.values.tolist()
+        confidence = pd.DataFrame(confidence).replace(0.0, np.nan)
+    confidence = None
+
     with col1:
-        st.write(
-            f"{selected_table} : Confiance = [{confidence_table.min(axis=None)} - {confidence_table.max(axis=None)}]"
-        )
+        # If there is a confidence
+        if confidence is not None:
+            st.write(
+                f"{selected_table} : Confiance = [{confidence.min(axis=None)} - {confidence.max(axis=None)}]"
+            )
+        else:
+            st.write(
+                "No confidence available for this table."
+            )
+
+        # TODO: reimplement possibility to change values
+        """
         col5, col6, col7, col8, col9 = st.columns(5)
         with col5:
             value_info = st.text_input(
@@ -281,6 +294,7 @@ if selected_table:
         )
         with col7:
             edition_tableau = st.toggle(label="Edition")
+        """
         with col8:
             st.download_button(
                 label="Export",
