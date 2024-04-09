@@ -2,11 +2,9 @@
 Utility functions.
 """
 from typing import List, Tuple
-import io
 import json
 import os
 import time
-import zipfile
 from pathlib import Path
 from s3fs import S3FileSystem
 import mlflow
@@ -23,6 +21,17 @@ import base64
 import tempfile
 from ca_query.querier import DocumentQuerier
 import re
+
+
+def sidebar_content():
+    if "token" not in st.session_state:
+        st.session_state.token = None
+    token = st.sidebar.text_input("ExtractTable token", type="password", key="token")
+    if st.button("Authentification - crédits"):
+        if token:
+            st.session_state.token = token
+            remaining_credits = get_extract_table_credits(token)
+            st.write(f"Crédits restants: {remaining_credits}")
 
 
 @st.cache_data
@@ -193,6 +202,25 @@ def disable_button():
     st.session_state["disable"] = True
 
 
+def get_extract_table_credits(token: str) -> int:
+    """
+    Get ExtractTable credits.
+
+    Args:
+        token (str): ExtractTable token.
+
+    Returns:
+        int: Remaining credits.
+    """
+    headers = {"x-api-key": token}
+
+    # Token validation
+    validation_url = "https://validator.extracttable.com"
+    validation_response = requests.request("GET", validation_url, headers=headers)
+    remaining_credits = json.loads(validation_response.text)["usage"]["credits"]
+    return remaining_credits
+
+
 def extract_table(document: fitz.Document) -> List:
     """
     Extract tables using https://extracttable.com/.
@@ -203,18 +231,17 @@ def extract_table(document: fitz.Document) -> List:
     Returns:
         List: List of extracted tables and confidences.
     """
-    # Call extracttable API to get an extraction
-    headers = {"x-api-key": os.environ["EXTRACTTABLE_API_KEY"]}
-
-    # Token validation
-    validation_url = "https://validator.extracttable.com"
-    validation_response = requests.request("GET", validation_url, headers=headers)
-    remaining_credits = json.loads(validation_response.text)["usage"]["credits"]
+    token = st.session_state.token
+    remaining_credits = get_extract_table_credits()
     if remaining_credits < 1:
-        raise ValueError("Not enough credits to extract tables.")
+        raise ValueError(
+            "Not enough credits to extract tables."
+            "Specify a valid token with enough credits.")
 
     # Post request to extract tables
     url = "https://trigger.extracttable.com"
+    # Call extracttable API to get an extraction
+    headers = {"x-api-key": token}
     payload = {
         "dup_check": "False",
     }

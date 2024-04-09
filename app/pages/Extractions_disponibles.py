@@ -14,6 +14,7 @@ from utils import (
     read_excel_from_s3,
     display_pdf,
     format_extraction_name,
+    sidebar_content
 )
 from pathlib import Path
 
@@ -22,6 +23,7 @@ st.set_page_config(layout="wide", page_title="Extractions disponibles", page_ico
 
 st.markdown("# Extractions disponibles")
 st.sidebar.header("Extractions disponibles")
+sidebar_content()
 st.write(
     """
     Liste des extractions disponibles.

@@ -16,6 +16,7 @@ from utils import (
     read_pdf_from_s3,
     get_extractor,
     extract_table,
+    sidebar_content,
 )
 from constants import PDF_SAMPLES_PATH, TABLE_TRANSFORMER_EXTRACTIONS_PATH, EXTRACT_TABLE_EXTRACTIONS_PATH, EXTRACT_TABLE_CONFIDENCES_PATH
 import fitz
@@ -26,6 +27,7 @@ st.set_page_config(layout="wide", page_title="Nouvelle extraction", page_icon="ð
 
 st.markdown("# Nouvelle extraction")
 st.sidebar.header("Nouvelle extraction")
+sidebar_content()
 st.write(
     """
     Page de lancement d'une nouvelle extraction.
