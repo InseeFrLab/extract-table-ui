@@ -1,20 +1,27 @@
 """
 Page for new extractions.
 """
+
 import streamlit as st
 from ca_query.querier import DocumentQuerier
 import os
-from utils import get_detector, get_page_selector, get_file_system, check_siren_length, check_availability, download_pdf, upload_pdf_to_s3, read_pdf_from_s3, get_extractor
+from utils import (
+    get_detector,
+    get_page_selector,
+    get_file_system,
+    check_siren_length,
+    check_availability,
+    download_pdf,
+    upload_pdf_to_s3,
+    read_pdf_from_s3,
+    get_extractor,
+)
 from constants import PDF_SAMPLES_PATH, TABLE_TRANSFORMER_EXTRACTIONS_PATH
 import fitz
 from ca_extract.extraction.table_transformer.utils import format_df_for_comparison
 
 
-st.set_page_config(
-    layout="wide",
-    page_title="Nouvelle extraction",
-    page_icon="📊"
-)
+st.set_page_config(layout="wide", page_title="Nouvelle extraction", page_icon="📊")
 
 st.markdown("# Nouvelle extraction")
 st.sidebar.header("Nouvelle extraction")
@@ -64,8 +71,7 @@ if st.session_state["button"]:
         for idx, company_id in enumerate(company_ids):
             if not check_siren_length(company_id):
                 st.error(
-                    f"Le numéro Siren {company_id} ne contient "
-                    f"pas 9 caractères."
+                    f"Le numéro Siren {company_id} ne contient " f"pas 9 caractères."
                 )
             else:
                 availability, document_id = check_availability(
@@ -75,10 +81,7 @@ if st.session_state["button"]:
                 if availability:
                     file_name = f"CA_{company_id}_{year}.pdf"
                     # Display the availability status for each document
-                    st.write(
-                        f"Document disponible pour le "
-                        f"Siren {company_id}."
-                    )
+                    st.write(f"Document disponible pour le " f"Siren {company_id}.")
 
                     PDFbyte = download_pdf(document_querier, document_id)
                     st.download_button(
@@ -114,7 +117,9 @@ if st.session_state["button"]:
                                 )
                                 document.select([page_number])
                                 # Save to persistent storage
-                                upload_pdf_to_s3(document=document, fs=fs, s3_path=s3_path)
+                                upload_pdf_to_s3(
+                                    document=document, fs=fs, s3_path=s3_path
+                                )
 
                             table_transformer_tab, extract_table_tab = st.tabs(
                                 ["Table transformer", "Site ExtractTable"]
@@ -122,13 +127,19 @@ if st.session_state["button"]:
 
                             # Detection
                             with table_transformer_tab:
-                                extraction_button = st.button("Extraction des tableaux", key=f"extraction_btn_{idx}")
+                                extraction_button = st.button(
+                                    "Extraction des tableaux",
+                                    key=f"extraction_btn_{idx}",
+                                )
                                 text_placeholder = st.empty()
                                 if not st.session_state.get(f"extraction_button_{idx}"):
-                                    st.session_state[f"extraction_button_{idx}"] = extraction_button
+                                    st.session_state[f"extraction_button_{idx}"] = (
+                                        extraction_button
+                                    )
                                 if st.session_state[f"extraction_button_{idx}"]:
                                     extraction_s3_path = os.path.join(
-                                        TABLE_TRANSFORMER_EXTRACTIONS_PATH, f"{company_id}_{year}"
+                                        TABLE_TRANSFORMER_EXTRACTIONS_PATH,
+                                        f"{company_id}_{year}",
                                     )
                                     if fs.exists(extraction_s3_path):
                                         text_placeholder.write(
@@ -147,9 +158,9 @@ if st.session_state["button"]:
                                             with fs.open(
                                                 os.path.join(
                                                     extraction_s3_path,
-                                                    f"table_{table_idx}.csv"
+                                                    f"table_{table_idx}.csv",
                                                 ),
-                                                "wb"
+                                                "wb",
                                             ) as f:
                                                 df.to_csv(f, index=False)
                                         text_placeholder.write(

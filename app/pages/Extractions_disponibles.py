@@ -1,17 +1,24 @@
 import streamlit as st
 import numpy as np
-from constants import TABLE_TRANSFORMER_EXTRACTIONS_PATH, PDF_SAMPLES_PATH, \
-    EXTRACT_TABLE_CONFIDENCES_PATH, EXTRACT_TABLE_EXTRACTIONS_PATH
+from constants import (
+    TABLE_TRANSFORMER_EXTRACTIONS_PATH,
+    PDF_SAMPLES_PATH,
+    EXTRACT_TABLE_CONFIDENCES_PATH,
+    EXTRACT_TABLE_EXTRACTIONS_PATH,
+)
 import pandas as pd
-from utils import list_files, disable_button, get_file_system, read_excel_from_s3, display_pdf, format_extraction_name
+from utils import (
+    list_files,
+    disable_button,
+    get_file_system,
+    read_excel_from_s3,
+    display_pdf,
+    format_extraction_name,
+)
 from pathlib import Path
 
 
-st.set_page_config(
-    layout="wide",
-    page_title="Extractions disponibles",
-    page_icon="📊"
-)
+st.set_page_config(layout="wide", page_title="Extractions disponibles", page_icon="📊")
 
 st.markdown("# Extractions disponibles")
 st.sidebar.header("Extractions disponibles")
@@ -36,7 +43,10 @@ with table_transformer_tab:
     )
     if selected_transformed_table:
         # Load pandas DataFrames from xlsx files stored in S3
-        pdf_sample_path = str(Path(PDF_SAMPLES_PATH) / selected_transformed_table.split("/")[-2]) + ".pdf"
+        pdf_sample_path = (
+            str(Path(PDF_SAMPLES_PATH) / selected_transformed_table.split("/")[-2])
+            + ".pdf"
+        )
         with fs.open(selected_transformed_table, "rb") as f:
             extraction = pd.read_csv(f)
 
@@ -44,9 +54,11 @@ with table_transformer_tab:
         st.download_button(
             label="Exporter l'extraction en .csv",
             data=extraction.to_csv(sep=";").encode("utf_8_sig"),
-            file_name=Path(format_extraction_name(selected_transformed_table)).with_suffix(".csv").name,
+            file_name=Path(format_extraction_name(selected_transformed_table))
+            .with_suffix(".csv")
+            .name,
             mime="text/csv",
-            key="table_transformer_export_button"
+            key="table_transformer_export_button",
         )
 
         col1, col2 = st.columns(2)
@@ -67,14 +79,17 @@ with extract_table_tab:
         label="Tableaux",
         options=extract_table_files,
         format_func=format_extraction_name,
-        on_change=disable_button
+        on_change=disable_button,
     )
 
     if selected_extracted_table:
         # Load pandas DataFrames from xlsx files stored in S3
-        path_suffix = '/'.join((selected_extracted_table.split('/'))[-2:])
+        path_suffix = "/".join((selected_extracted_table.split("/"))[-2:])
         confidence_path = str(Path(EXTRACT_TABLE_CONFIDENCES_PATH) / path_suffix)
-        pdf_sample_path = str(Path(PDF_SAMPLES_PATH) / selected_extracted_table.split("/")[-2]) + ".pdf"
+        pdf_sample_path = (
+            str(Path(PDF_SAMPLES_PATH) / selected_extracted_table.split("/")[-2])
+            + ".pdf"
+        )
 
         extraction = read_excel_from_s3(fs, selected_extracted_table)
         extraction.fillna("", inplace=True)
@@ -82,9 +97,7 @@ with extract_table_tab:
         extraction = pd.DataFrame(extraction)
         if not fs.exists(confidence_path):
             styled_extraction = extraction
-            st.write(
-                "No confidence available for this table."
-            )
+            st.write("No confidence available for this table.")
         else:
             confidence = read_excel_from_s3(fs, confidence_path)
             confidence = confidence.values.tolist()
@@ -100,16 +113,21 @@ with extract_table_tab:
         st.download_button(
             label="Exporter l'extraction en .csv",
             data=extraction.to_csv(sep=";").encode("utf_8_sig"),
-            file_name=Path(format_extraction_name(selected_transformed_table)).with_suffix(".csv").name,
+            file_name=Path(format_extraction_name(selected_transformed_table))
+            .with_suffix(".csv")
+            .name,
             mime="text/csv",
-            key="extract_table_export_button"
+            key="extract_table_export_button",
         )
 
         col1, col2 = st.columns(2)
         with col1:
             # Display extraction
             st.dataframe(
-                styled_extraction, height=800, use_container_width=True, hide_index=False
+                styled_extraction,
+                height=800,
+                use_container_width=True,
+                hide_index=False,
             )
         with col2:
             # Display PDF
