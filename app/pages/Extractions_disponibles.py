@@ -3,7 +3,7 @@ import numpy as np
 from constants import TABLE_TRANSFORMER_EXTRACTIONS_PATH, PDF_SAMPLES_PATH, \
     EXTRACT_TABLE_CONFIDENCES_PATH, EXTRACT_TABLE_EXTRACTIONS_PATH
 import pandas as pd
-from utils import list_files, disable_button, get_file_system, read_excel_from_s3, display_pdf
+from utils import list_files, disable_button, get_file_system, read_excel_from_s3, display_pdf, format_extraction_name
 from pathlib import Path
 
 
@@ -29,7 +29,10 @@ table_transformer_tab, extract_table_tab = st.tabs(
 with table_transformer_tab:
     file_paths = list_files(fs=fs, s3_path=TABLE_TRANSFORMER_EXTRACTIONS_PATH)
     selected_transformed_table = st.selectbox(
-        label="Documents", options=file_paths, on_change=disable_button
+        label="Documents",
+        options=file_paths,
+        format_func=format_extraction_name,
+        on_change=disable_button,
     )
     if selected_transformed_table:
         # Load pandas DataFrames from xlsx files stored in S3
@@ -41,8 +44,9 @@ with table_transformer_tab:
         st.download_button(
             label="Exporter l'extraction en .csv",
             data=extraction.to_csv(sep=";").encode("utf_8_sig"),
-            file_name=Path(selected_transformed_table).with_suffix(".csv").name,
+            file_name=Path(format_extraction_name(selected_transformed_table)).with_suffix(".csv").name,
             mime="text/csv",
+            key="table_transformer_export_button"
         )
 
         col1, col2 = st.columns(2)
@@ -60,13 +64,17 @@ with extract_table_tab:
     # List available table transformer extractions
     extract_table_files = list_files(fs=fs, s3_path=EXTRACT_TABLE_EXTRACTIONS_PATH)
     selected_extracted_table = st.selectbox(
-        label="Tableaux", options=extract_table_files, on_change=disable_button
+        label="Tableaux",
+        options=extract_table_files,
+        format_func=format_extraction_name,
+        on_change=disable_button
     )
 
     if selected_extracted_table:
         # Load pandas DataFrames from xlsx files stored in S3
-        confidence_path = str(Path(EXTRACT_TABLE_CONFIDENCES_PATH) / Path(selected_extracted_table).name)
-        pdf_sample_path = str(Path(PDF_SAMPLES_PATH) / Path(selected_extracted_table).name.replace(".xlsx", ".pdf"))
+        path_suffix = '/'.join((selected_extracted_table.split('/'))[-2:])
+        confidence_path = str(Path(EXTRACT_TABLE_CONFIDENCES_PATH) / path_suffix)
+        pdf_sample_path = str(Path(PDF_SAMPLES_PATH) / selected_extracted_table.split("/")[-2]) + ".pdf"
 
         extraction = read_excel_from_s3(fs, selected_extracted_table)
         extraction.fillna("", inplace=True)
@@ -85,15 +93,16 @@ with extract_table_tab:
                 axis=None, gmap=confidence, cmap="Reds"
             )
             st.write(
-                f"{selected_extracted_table} : Confiance = [{confidence.min(axis=None)} - {confidence.max(axis=None)}]"
+                f"Valeurs de confiance = [{confidence.min(axis=None)} - {confidence.max(axis=None)}]"
             )
 
         # Export button
         st.download_button(
             label="Exporter l'extraction en .csv",
             data=extraction.to_csv(sep=";").encode("utf_8_sig"),
-            file_name=Path(selected_extracted_table).with_suffix(".csv").name,
+            file_name=Path(format_extraction_name(selected_transformed_table)).with_suffix(".csv").name,
             mime="text/csv",
+            key="extract_table_export_button"
         )
 
         col1, col2 = st.columns(2)

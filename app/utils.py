@@ -22,6 +22,7 @@ from ca_extract.page_selection.page_selector import PageSelector
 import base64
 import tempfile
 from ca_query.querier import DocumentQuerier
+import re
 
 
 @st.cache_data
@@ -359,3 +360,25 @@ def read_pdf_from_s3(fs: S3FileSystem, s3_path: str):
         # Read the PDF file using fitz
         document = fitz.open(local_path)
     return document
+
+
+def format_extraction_name(file_path: str) -> str:
+    """
+    Format table transformer extraction name.
+
+    Args:
+        file_path (str): File path.
+
+    Returns:
+        str: Formatted name.
+    """
+    pattern = r'(\d+)_(\d{4})/table_(\d+)\.(csv|xlsx)'
+    match = re.search(pattern, file_path)
+
+    if match:
+        id_number, year, table_number, _ = match.groups()
+        table_number = int(table_number) + 1  # Adjust table number to start from 1 instead of 0
+        output_string = f"{id_number} ({year}) - Table {table_number}"
+        return output_string
+    else:
+        return file_path
