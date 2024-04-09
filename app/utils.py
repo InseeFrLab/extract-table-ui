@@ -204,20 +204,30 @@ def extract_table(document: fitz.Document) -> List:
         List: List of extracted tables and confidences.
     """
     # Call extracttable API to get an extraction
-    url = "https://trigger.extracttable.com"
+    headers = {"x-api-key": os.environ["EXTRACTTABLE_API_KEY"]}
 
-    payload = {"dup_check": "False"}
+    # Token validation
+    validation_url = "https://validator.extracttable.com"
+    validation_response = requests.request("GET", validation_url, headers=headers)
+    remaining_credits = json.loads(validation_response.text)["usage"]["credits"]
+    if remaining_credits < 1:
+        raise ValueError("Not enough credits to extract tables.")
+
+    # Post request to extract tables
+    url = "https://trigger.extracttable.com"
+    payload = {
+        "dup_check": "False",
+    }
     files = [
         (
             "input",
             (
-                document.write()
+                "document.pdf",
+                document.tobytes(),
             ),
         )
     ]
-    headers = {"x-api-key": os.environ["EXTRACTTABLE_API_KEY"]}
 
-    # TODO: validate query ?
     response = requests.request("POST", url, headers=headers, data=payload, files=files)
     url = "https://getresult.extracttable.com/?JobId=" + str(
         json.loads(response.text)["JobId"]
@@ -325,7 +335,6 @@ def read_pdf_from_s3(fs: S3FileSystem, s3_path: str):
         # Download the PDF file from S3 to the temporary directory
         local_path = os.path.join(temp_dir, 'tmp_file.pdf')
         fs.get(s3_path, local_path)
-
         # Read the PDF file using fitz
         document = fitz.open(local_path)
     return document
