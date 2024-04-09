@@ -15,8 +15,9 @@ from utils import (
     upload_pdf_to_s3,
     read_pdf_from_s3,
     get_extractor,
+    extract_table,
 )
-from constants import PDF_SAMPLES_PATH, TABLE_TRANSFORMER_EXTRACTIONS_PATH
+from constants import PDF_SAMPLES_PATH, TABLE_TRANSFORMER_EXTRACTIONS_PATH, EXTRACT_TABLE_EXTRACTIONS_PATH, EXTRACT_TABLE_CONFIDENCES_PATH
 import fitz
 from ca_extract.extraction.table_transformer.utils import format_df_for_comparison
 
@@ -68,7 +69,7 @@ if st.session_state["button"]:
         st.error("Année non valide.")
 
     if isinstance(year, int):
-        for idx, company_id in enumerate(company_ids):
+        for company_id in company_ids:
             if not check_siren_length(company_id):
                 st.error(
                     f"Le numéro Siren {company_id} ne contient " f"pas 9 caractères."
@@ -93,11 +94,11 @@ if st.session_state["button"]:
 
                     selection_button = st.button(
                         "Identification de la page d'intérêt",
-                        key=f"page_selection_btn_{idx}",
+                        key=f"page_selection_btn_{company_id}_{year}",
                     )
-                    if not st.session_state.get(f"selection_button_{idx}"):
-                        st.session_state[f"selection_button_{idx}"] = selection_button
-                    if st.session_state[f"selection_button_{idx}"]:
+                    if not st.session_state.get(f"selection_button_{company_id}_{year}"):
+                        st.session_state[f"selection_button_{company_id}_{year}"] = selection_button
+                    if st.session_state[f"selection_button_{company_id}_{year}"]:
                         try:
                             s3_path = os.path.join(
                                 PDF_SAMPLES_PATH, f"{company_id}_{year}.pdf"
@@ -129,14 +130,14 @@ if st.session_state["button"]:
                             with table_transformer_tab:
                                 extraction_button = st.button(
                                     "Extraction des tableaux",
-                                    key=f"extraction_btn_{idx}",
+                                    key=f"extraction_btn_{company_id}_{year}",
                                 )
                                 text_placeholder = st.empty()
-                                if not st.session_state.get(f"extraction_button_{idx}"):
-                                    st.session_state[f"extraction_button_{idx}"] = (
+                                if not st.session_state.get(f"extraction_btn_{company_id}_{year}_state"):
+                                    st.session_state[f"extraction_btn_{company_id}_{year}_state"] = (
                                         extraction_button
                                     )
-                                if st.session_state[f"extraction_button_{idx}"]:
+                                if st.session_state[f"extraction_btn_{company_id}_{year}_state"]:
                                     extraction_s3_path = os.path.join(
                                         TABLE_TRANSFORMER_EXTRACTIONS_PATH,
                                         f"{company_id}_{year}",
@@ -162,16 +163,63 @@ if st.session_state["button"]:
                                                 ),
                                                 "wb",
                                             ) as f:
-                                                df.to_csv(f, index=False)
+                                                df.to_csv(f)
                                         text_placeholder.write(
-                                            "Extraction effectuée: "
-                                            "accédez-y grâce à l'onglet 'Extractions disponibles'."
+                                            f"Extraction de {len(crops)} effectuée: "
+                                            f"accédez-y grâce à l'onglet 'Extractions disponibles'."
                                         )
 
                             with extract_table_tab:
                                 # ExtractTable extraction
-                                pass
-
+                                extract_table_button = st.button(
+                                    "Extraction des tableaux",
+                                    key=f"extract_table_btn_{company_id}_{year}",
+                                )
+                                text_placeholder = st.empty()
+                                if not st.session_state.get(f"extract_table_btn_{company_id}_{year}_state"):
+                                    st.session_state[f"extract_table_btn_{company_id}_{year}_state"] = (
+                                        extract_table_button
+                                    )
+                                if st.session_state[f"extract_table_btn_{company_id}_{year}_state"]:
+                                    extract_table_s3_path = os.path.join(
+                                        EXTRACT_TABLE_EXTRACTIONS_PATH,
+                                        f"{company_id}_{year}",
+                                    )
+                                    extract_table_confidence_s3_path = os.path.join(
+                                        EXTRACT_TABLE_CONFIDENCES_PATH,
+                                        f"{company_id}_{year}",
+                                    )
+                                    if fs.exists(extract_table_s3_path):
+                                        text_placeholder.write(
+                                            "L'extraction existe déjà: "
+                                            "accédez-y grâce à l'onglet 'Extractions disponibles'."
+                                        )
+                                    else:
+                                        text_placeholder.write("Extraction en cours...")
+                                        outputs = extract_table(document, company_id)
+                                        for table_idx, (df, df_conf) in enumerate(outputs):
+                                            # Save as excel file
+                                            with fs.open(
+                                                os.path.join(
+                                                    extract_table_s3_path,
+                                                    f"table_{table_idx}.xlsx",
+                                                ),
+                                                "wb",
+                                            ) as f:
+                                                df.to_excel(f)
+                                            # Save confidences
+                                            with fs.open(
+                                                os.path.join(
+                                                    extract_table_confidence_s3_path,
+                                                    f"table_{table_idx}.xlsx",
+                                                ),
+                                                "wb",
+                                            ) as f:
+                                                df_conf.to_excel(f)
+                                        text_placeholder.write(
+                                            f"Extraction de {len(outputs)} tableaux effectuée: "
+                                            f"accédez-y grâce à l'onglet 'Extractions disponibles'."
+                                        )
                         except ValueError as e:
                             # Print error message.
                             st.write(str(e))

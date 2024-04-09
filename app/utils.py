@@ -193,26 +193,16 @@ def disable_button():
     st.session_state["disable"] = True
 
 
-def pdf_to_csv(uploaded_pdf_file, company_id, s3: bool = True) -> bytes:
+def extract_table(document: fitz.Document) -> List:
     """
-
+    Extract tables using https://extracttable.com/.
 
     Args:
-        uploaded_pdf_file (_type_): _description_
-        company_id (_type_): _description_
-        s3 (bool): if True, then upload to S3. Defaults to True.
+        document (fitz.Document): Document.
 
     Returns:
-        bytes: _description_
+        List: List of extracted tables and confidences.
     """
-    if s3:
-        s3_input_pdf_path = Path("projet-extraction-tableaux/app_data/pdf")
-        s3_output_xlsx_path = Path("projet-extraction-tableaux/app_data/xlsx/extracttable")
-    destination = Path(os.path.join("data", "input_pdf", f"{company_id}.pdf"))
-    output_folder = os.path.join("data/output_xlsx", company_id)
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
-
     # Call extracttable API to get an extraction
     url = "https://trigger.extracttable.com"
 
@@ -221,13 +211,13 @@ def pdf_to_csv(uploaded_pdf_file, company_id, s3: bool = True) -> bytes:
         (
             "input",
             (
-                f"{company_id}.pdf",
-                open(os.path.join("data/input_pdf", f"{company_id}.pdf"), "rb"),
+                document.write()
             ),
         )
     ]
-    headers = {"x-api-key": ""}
+    headers = {"x-api-key": os.environ["EXTRACTTABLE_API_KEY"]}
 
+    # TODO: validate query ?
     response = requests.request("POST", url, headers=headers, data=payload, files=files)
     url = "https://getresult.extracttable.com/?JobId=" + str(
         json.loads(response.text)["JobId"]
@@ -241,6 +231,7 @@ def pdf_to_csv(uploaded_pdf_file, company_id, s3: bool = True) -> bytes:
     json_object = json.loads(response.text)
 
     # Process extraction
+    outputs = []
     for extracted_table in range(len(json_object["Tables"])):
         # Process extracted table
         df = pd.DataFrame.from_dict(
@@ -248,12 +239,6 @@ def pdf_to_csv(uploaded_pdf_file, company_id, s3: bool = True) -> bytes:
         )
         df.index = df.index.map(int)
         df = df.sort_index(axis=0)
-        # Save as excel file
-        df.to_excel(
-            os.path.join(
-                output_folder, company_id + "--" + str(extracted_table + 1) + ".xlsx"
-            )
-        )
 
         # Process confidence indices
         df_conf = pd.DataFrame.from_dict(
@@ -261,24 +246,8 @@ def pdf_to_csv(uploaded_pdf_file, company_id, s3: bool = True) -> bytes:
         )
         df_conf.index = df_conf.index.map(int)
         df_conf = df_conf.sort_index(axis=0)
-        # Save confidence indices
-        df_conf.to_excel(
-            os.path.join(
-                output_folder,
-                company_id + "--" + str(extracted_table + 1) + "_confidence.xlsx",
-            )
-        )
-
-    # Return zip file
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(
-        file=zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED
-    ) as zip_file:
-        for name in os.listdir(output_folder):
-            zip_file.write(os.path.join(output_folder, name), name)
-    buf = zip_buf.getvalue()
-    zip_buf.close()
-    return buf
+        outputs.append((df, df_conf))
+    return outputs
 
 
 def display_pdf(fs: S3FileSystem, s3_path: str):
