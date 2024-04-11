@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: extraction-ui
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/InseeFrLab/extract-table-ui.git
+    targetRevision: HEAD
+    path: kubernetes
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: projet-extraction-tableaux
+  syncPolicy:
+    automated:
+      selfHeal: true
