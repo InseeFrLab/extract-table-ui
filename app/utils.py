@@ -24,14 +24,17 @@ import re
 
 
 def sidebar_content():
-    if "token" not in st.session_state:
-        st.session_state.token = None
+    """
+    Add side bar content for ExtractTable authentication.
+    """
+    if "auth_token" not in st.session_state:
+        st.session_state.auth_token = None
     token = st.sidebar.text_input("ExtractTable token", type="password", key="token")
-    if st.button("Authentification - crédits"):
+    if st.sidebar.button("Authentification - crédits"):
         if token:
-            st.session_state.token = token
+            st.session_state.auth_token = token
             remaining_credits = get_extract_table_credits(token)
-            st.write(f"Crédits restants: {remaining_credits}")
+            st.sidebar.write(f"Crédits restants: {remaining_credits}")
 
 
 @st.cache_data
@@ -217,7 +220,9 @@ def get_extract_table_credits(token: str) -> int:
     # Token validation
     validation_url = "https://validator.extracttable.com"
     validation_response = requests.request("GET", validation_url, headers=headers)
-    remaining_credits = json.loads(validation_response.text)["usage"]["credits"]
+    total_credits = json.loads(validation_response.text)["usage"]["credits"]
+    used_credits = json.loads(validation_response.text)["usage"]["used"]
+    remaining_credits = total_credits - used_credits
     return remaining_credits
 
 
@@ -231,8 +236,8 @@ def extract_table(document: fitz.Document) -> List:
     Returns:
         List: List of extracted tables and confidences.
     """
-    token = st.session_state.token
-    remaining_credits = get_extract_table_credits()
+    token = st.session_state.auth_token
+    remaining_credits = get_extract_table_credits(token)
     if remaining_credits < 1:
         raise ValueError(
             "Not enough credits to extract tables."
@@ -277,13 +282,16 @@ def extract_table(document: fitz.Document) -> List:
         df.index = df.index.map(int)
         df = df.sort_index(axis=0)
 
-        # Process confidence indices
-        df_conf = pd.DataFrame.from_dict(
-            json_object["Tables"][extracted_table]["TableConfidence"], orient="index"
-        )
-        df_conf.index = df_conf.index.map(int)
-        df_conf = df_conf.sort_index(axis=0)
-        outputs.append((df, df_conf))
+        try:
+            # Process confidence indices
+            df_conf = pd.DataFrame.from_dict(
+                json_object["Tables"][extracted_table]["TableConfidence"], orient="index"
+            )
+            df_conf.index = df_conf.index.map(int)
+            df_conf = df_conf.sort_index(axis=0)
+            outputs.append((df, df_conf))
+        except KeyError:
+            outputs.append((df, None))
     return outputs
 
 

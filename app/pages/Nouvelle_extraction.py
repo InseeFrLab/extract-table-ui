@@ -48,7 +48,7 @@ extractor = get_extractor()
 
 # Allow users to input year
 year = st.text_area(
-    label="Entrez l'année pour laquelle vous souhaitez vérifier"
+    label="Entrez l'année pour laquelle vous souhaitez vérifier "
     "la disponibilité du document",
     value="2021",
     max_chars=4,
@@ -198,7 +198,7 @@ if st.session_state["button"]:
                                         )
                                     else:
                                         text_placeholder.write("Extraction en cours...")
-                                        outputs = extract_table(document, company_id)
+                                        outputs = extract_table(document)
                                         for table_idx, (df, df_conf) in enumerate(outputs):
                                             # Save as excel file
                                             with fs.open(
@@ -210,14 +210,15 @@ if st.session_state["button"]:
                                             ) as f:
                                                 df.to_excel(f)
                                             # Save confidences
-                                            with fs.open(
-                                                os.path.join(
-                                                    extract_table_confidence_s3_path,
-                                                    f"table_{table_idx}.xlsx",
-                                                ),
-                                                "wb",
-                                            ) as f:
-                                                df_conf.to_excel(f)
+                                            if df_conf is not None:
+                                                with fs.open(
+                                                    os.path.join(
+                                                        extract_table_confidence_s3_path,
+                                                        f"table_{table_idx}.xlsx",
+                                                    ),
+                                                    "wb",
+                                                ) as f:
+                                                    df_conf.to_excel(f)
                                         text_placeholder.write(
                                             f"Extraction de {len(outputs)} tableaux effectuée: "
                                             f"accédez-y grâce à l'onglet 'Extractions disponibles'."
