@@ -7,16 +7,10 @@ import os
 import time
 from pathlib import Path
 from s3fs import S3FileSystem
-import mlflow
 import pandas as pd
 import requests
 import streamlit as st
 import fitz
-from ca_extract.extraction.table_transformer.detector import \
-    TableTransformerDetector
-from ca_extract.extraction.table_transformer.extractor import \
-    TableTransformerExtractor
-from ca_extract.page_selection.page_selector import PageSelector
 import base64
 import tempfile
 from ca_query.querier import DocumentQuerier
@@ -118,58 +112,6 @@ def check_siren_length(siren: str) -> bool:
 
 def get_root_path():
     return Path(__file__).parent.parent
-
-
-@st.cache_resource
-def get_detector() -> TableTransformerDetector:
-    """
-    Load table detector model.
-
-    Returns:
-        TableTransformerDetector: detector.
-    """
-    detector = TableTransformerDetector(
-        padding_factor=1.02,
-        crop_padding_factor=1.02,
-    )
-    print("TableTransformerDetector loaded.")
-    return detector
-
-
-@st.cache_resource
-def get_extractor() -> TableTransformerExtractor:
-    """
-    Load table extractor model.
-
-    Returns:
-        TableTransformerExtractor: detector.
-    """
-    extractor = TableTransformerExtractor()
-    print("TableTransformerExtractor loaded.")
-    return extractor
-
-
-@st.cache_resource
-def get_page_selector(from_mlflow: bool = True) -> PageSelector:
-    """
-    Load page selector.
-
-    Args:
-        from_mlflow (bool, optional): Load from MLflow. Defaults to True.
-
-    Returns:
-        PageSelector: Page selector.
-    """
-    if from_mlflow:
-        model_name = "page_selection"
-        stage = "Staging"
-        clf = mlflow.pyfunc.load_model(f"models:/{model_name}/{stage}")
-    # Load from local
-    else:
-        clf = mlflow.pyfunc.load_model("models/page_selection")
-    page_selector = PageSelector(clf=clf)
-    print("Page selector loaded.")
-    return page_selector
 
 
 def list_files(fs: S3FileSystem, s3_path: str) -> List:
