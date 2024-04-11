@@ -6,21 +6,24 @@ import streamlit as st
 from ca_query.querier import DocumentQuerier
 import os
 from utils import (
-    get_detector,
-    get_page_selector,
     get_file_system,
     check_siren_length,
     check_availability,
     download_pdf,
     upload_pdf_to_s3,
     read_pdf_from_s3,
-    get_extractor,
     extract_table,
     sidebar_content,
 )
-from constants import PDF_SAMPLES_PATH, TABLE_TRANSFORMER_EXTRACTIONS_PATH, EXTRACT_TABLE_EXTRACTIONS_PATH, EXTRACT_TABLE_CONFIDENCES_PATH
+import requests
+from constants import (
+    PDF_SAMPLES_PATH,
+    TABLE_TRANSFORMER_EXTRACTIONS_PATH,
+    EXTRACT_TABLE_EXTRACTIONS_PATH,
+    EXTRACT_TABLE_CONFIDENCES_PATH,
+)
 import fitz
-from ca_extract.extraction.table_transformer.utils import format_df_for_comparison
+import pandas as pd
 
 
 st.set_page_config(layout="wide", page_title="Nouvelle extraction", page_icon="📊")
@@ -37,14 +40,9 @@ st.write(
 # Initialize cached resources
 fs = get_file_system()
 # Document querier - requires user name and password
-# TODO: let user input their credentials
 document_querier = DocumentQuerier(
     os.environ["TEST_INPI_USERNAME"], os.environ["TEST_INPI_PASSWORD"]
 )
-page_selector = get_page_selector()
-# Table transformer extraction
-detector = get_detector()
-extractor = get_extractor()
 
 # Allow users to input year
 year = st.text_area(
@@ -98,8 +96,12 @@ if st.session_state["button"]:
                         "Identification de la page d'intérêt",
                         key=f"page_selection_btn_{company_id}_{year}",
                     )
-                    if not st.session_state.get(f"selection_button_{company_id}_{year}"):
-                        st.session_state[f"selection_button_{company_id}_{year}"] = selection_button
+                    if not st.session_state.get(
+                        f"selection_button_{company_id}_{year}"
+                    ):
+                        st.session_state[f"selection_button_{company_id}_{year}"] = (
+                            selection_button
+                        )
                     if st.session_state[f"selection_button_{company_id}_{year}"]:
                         try:
                             s3_path = os.path.join(
@@ -111,9 +113,18 @@ if st.session_state["button"]:
                             # Else run page selection and persist the selected page
                             else:
                                 document = fitz.open(stream=PDFbyte, filetype="pdf")
+                                # TODO: put extraction in a function
                                 # TODO: There can be multiple pages sometimes
                                 # TODO: implement this possibility
-                                page_number = page_selector.get_page_number(document)
+                                page_selection_url = (
+                                    "https://extraction-cs.lab.sspcloud.fr/select_page"
+                                )
+                                files = {"pdf_file": document.tobytes()}
+                                response = requests.post(
+                                    url=page_selection_url, files=files
+                                )
+                                # TODO: handle errors using result field
+                                page_number = response.json()["page_number"]
                                 st.write(
                                     f"Un tableau filiales et participations a été "
                                     f"repéré à la page {page_number + 1}."
@@ -128,18 +139,22 @@ if st.session_state["button"]:
                                 ["Table transformer", "Site ExtractTable"]
                             )
 
-                            # Detection
+                            # Extraction
                             with table_transformer_tab:
                                 extraction_button = st.button(
                                     "Extraction des tableaux",
                                     key=f"extraction_btn_{company_id}_{year}",
                                 )
                                 text_placeholder = st.empty()
-                                if not st.session_state.get(f"extraction_btn_{company_id}_{year}_state"):
-                                    st.session_state[f"extraction_btn_{company_id}_{year}_state"] = (
-                                        extraction_button
-                                    )
-                                if st.session_state[f"extraction_btn_{company_id}_{year}_state"]:
+                                if not st.session_state.get(
+                                    f"extraction_btn_{company_id}_{year}_state"
+                                ):
+                                    st.session_state[
+                                        f"extraction_btn_{company_id}_{year}_state"
+                                    ] = extraction_button
+                                if st.session_state[
+                                    f"extraction_btn_{company_id}_{year}_state"
+                                ]:
                                     extraction_s3_path = os.path.join(
                                         TABLE_TRANSFORMER_EXTRACTIONS_PATH,
                                         f"{company_id}_{year}",
@@ -151,12 +166,16 @@ if st.session_state["button"]:
                                         )
                                     else:
                                         text_placeholder.write("Extraction en cours...")
-                                        # Detection
-                                        crops = detector.detect(document)
-                                        # Extraction
-                                        for table_idx, crop in enumerate(crops):
-                                            df, _ = extractor.extract(crop)
-                                            df = format_df_for_comparison(df)
+                                        # Table extraction
+                                        extraction_url = "https://extraction-cs.lab.sspcloud.fr/extract"
+                                        files = {"pdf_page": document.tobytes()}
+                                        response = requests.post(
+                                            url=extraction_url, files=files
+                                        )
+                                        # TODO: handle errors using result field
+                                        tables = response.json()["tables"]
+                                        for table_idx, table in enumerate(tables):
+                                            df = pd.DataFrame.from_dict(table)
                                             # Save to persistent storage
                                             with fs.open(
                                                 os.path.join(
@@ -167,7 +186,7 @@ if st.session_state["button"]:
                                             ) as f:
                                                 df.to_csv(f)
                                         text_placeholder.write(
-                                            f"Extraction de {len(crops)} effectuée: "
+                                            f"Extraction de {len(tables)} effectuée: "
                                             f"accédez-y grâce à l'onglet 'Extractions disponibles'."
                                         )
 
@@ -178,11 +197,15 @@ if st.session_state["button"]:
                                     key=f"extract_table_btn_{company_id}_{year}",
                                 )
                                 text_placeholder = st.empty()
-                                if not st.session_state.get(f"extract_table_btn_{company_id}_{year}_state"):
-                                    st.session_state[f"extract_table_btn_{company_id}_{year}_state"] = (
-                                        extract_table_button
-                                    )
-                                if st.session_state[f"extract_table_btn_{company_id}_{year}_state"]:
+                                if not st.session_state.get(
+                                    f"extract_table_btn_{company_id}_{year}_state"
+                                ):
+                                    st.session_state[
+                                        f"extract_table_btn_{company_id}_{year}_state"
+                                    ] = extract_table_button
+                                if st.session_state[
+                                    f"extract_table_btn_{company_id}_{year}_state"
+                                ]:
                                     extract_table_s3_path = os.path.join(
                                         EXTRACT_TABLE_EXTRACTIONS_PATH,
                                         f"{company_id}_{year}",
@@ -199,7 +222,9 @@ if st.session_state["button"]:
                                     else:
                                         text_placeholder.write("Extraction en cours...")
                                         outputs = extract_table(document)
-                                        for table_idx, (df, df_conf) in enumerate(outputs):
+                                        for table_idx, (df, df_conf) in enumerate(
+                                            outputs
+                                        ):
                                             # Save as excel file
                                             with fs.open(
                                                 os.path.join(
