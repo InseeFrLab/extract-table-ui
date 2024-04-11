@@ -6,8 +6,6 @@ Avant de lancer l'application, installer les dépendances avec `./setup.sh` et `
 
 - `TEST_INPI_USERNAME`: nom d'utilisation du compte INPI;
 - `TEST_INPI_PASSWORD`: mot de passe du compte INPI;
-- `MLFLOW_TRACKING_URI`: URI du MLflow tracking server utilisé;
-- `MLFLOW_S3_ENDPOINT_URL`: nom du endpoint S3 pour MLflow.
 
 Puis lancer l'application avec `streamlit run main.py --server.port=8501 --server.address=0.0.0.0` par exemple.
 
