@@ -3,4 +3,6 @@ fastapi
 openpyxl
 img2pdf
 ExtractTable
+PyMuPDF
+pandas
 git+https://github.com/InseeFrLab/ca-document-querier.git
