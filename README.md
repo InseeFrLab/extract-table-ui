@@ -2,7 +2,7 @@
 
 ## Mise en route
 
-Avant de lancer l'application, installer les dépendances avec `./setup.sh` et `pip install -r requirements.txt`, puis renseigner les variables d'environnement:
+Avant de lancer l'application, installer les dépendances avec `pip install -r requirements.txt`, puis renseigner les variables d'environnement:
 
 - `TEST_INPI_USERNAME`: nom d'utilisation du compte INPI;
 - `TEST_INPI_PASSWORD`: mot de passe du compte INPI;

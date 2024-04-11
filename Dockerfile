@@ -3,10 +3,6 @@ FROM $BASE_IMAGE
 
 WORKDIR /app
 
-COPY setup.sh .
-
-RUN ./setup.sh
-
 COPY requirements.txt requirements.txt
 
 ENV PATH="${PATH}:/home/onyxia/.local/bin"
