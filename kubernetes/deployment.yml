@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: extract-table-ui
+spec:
+  selector:
+    matchLabels:
+      app: extract-table-ui
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: extract-table-ui
+    spec:
+      containers:
+        - name: dashboard
+          image: inseefrlab/extract-table-ui:main
+          imagePullPolicy: Always
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: my-s3-creds
+                  key: accessKey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: my-s3-creds
+                  key: secretKey
+            - name: AWS_S3_ENDPOINT
+              value: "minio.lab.sspcloud.fr"
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: TEST_INPI_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: inpi-creds
+                  key: username
+            - name: TEST_INPI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: inpi-creds
+                  key: password
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "5Gi"
+              cpu: "10000m"
