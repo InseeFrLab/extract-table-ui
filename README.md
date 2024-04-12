@@ -2,12 +2,7 @@
 
 ## Mise en route
 
-Avant de lancer l'application, installer les dépendances avec `pip install -r requirements.txt`, puis renseigner les variables d'environnement:
-
-- `TEST_INPI_USERNAME`: nom d'utilisation du compte INPI;
-- `TEST_INPI_PASSWORD`: mot de passe du compte INPI;
-
-Puis lancer l'application avec `streamlit run main.py --server.port=8501 --server.address=0.0.0.0` par exemple.
+Avant de lancer l'application, installer les dépendances avec `pip install -r requirements.txt`, puis lancer l'application avec `streamlit run main.py --server.port=8501 --server.address=0.0.0.0` par exemple.
 
 ## Briques
 
