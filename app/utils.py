@@ -4,31 +4,15 @@ Utility functions.
 from typing import List, Tuple
 import json
 import os
-import time
 from pathlib import Path
 from s3fs import S3FileSystem
 import pandas as pd
 import requests
 import streamlit as st
 import fitz
-import base64
 import tempfile
 from ca_query.querier import DocumentQuerier
 import re
-
-
-def sidebar_content():
-    """
-    Add side bar content for ExtractTable authentication.
-    """
-    if "auth_token" not in st.session_state:
-        st.session_state.auth_token = None
-    token = st.sidebar.text_input("ExtractTable token", type="password", key="token")
-    if st.sidebar.button("Authentification - crédits"):
-        if token:
-            st.session_state.auth_token = token
-            remaining_credits = get_extract_table_credits(token)
-            st.sidebar.write(f"Crédits restants: {remaining_credits}")
 
 
 @st.cache_data
@@ -135,18 +119,6 @@ def list_files(fs: S3FileSystem, s3_path: str) -> List:
     return files
 
 
-def change_state(edited_df):
-    st.session_state["df_value"] = edited_df
-    st.session_state["disable"] = False
-
-
-def disable_button():
-    """
-    Disable button.
-    """
-    st.session_state["disable"] = True
-
-
 def get_extract_table_credits(token: str) -> int:
     """
     Get ExtractTable credits.
@@ -166,93 +138,6 @@ def get_extract_table_credits(token: str) -> int:
     used_credits = json.loads(validation_response.text)["usage"]["used"]
     remaining_credits = total_credits - used_credits
     return remaining_credits
-
-
-def extract_table(document: fitz.Document) -> List:
-    """
-    Extract tables using https://extracttable.com/.
-
-    Args:
-        document (fitz.Document): Document.
-
-    Returns:
-        List: List of extracted tables and confidences.
-    """
-    token = st.session_state.auth_token
-    remaining_credits = get_extract_table_credits(token)
-    if remaining_credits < 1:
-        raise ValueError(
-            "Not enough credits to extract tables."
-            "Specify a valid token with enough credits.")
-
-    # Post request to extract tables
-    url = "https://trigger.extracttable.com"
-    # Call extracttable API to get an extraction
-    headers = {"x-api-key": token}
-    payload = {
-        "dup_check": "False",
-    }
-    files = [
-        (
-            "input",
-            (
-                "document.pdf",
-                document.tobytes(),
-            ),
-        )
-    ]
-
-    response = requests.request("POST", url, headers=headers, data=payload, files=files)
-    url = "https://getresult.extracttable.com/?JobId=" + str(
-        json.loads(response.text)["JobId"]
-    )
-    payload = {}
-    response = requests.request("GET", url, headers=headers, data=payload)
-    while str(json.loads(response.text)["JobStatus"]) == "Processing":
-        time.sleep(1)
-        response = requests.request("GET", url, headers=headers, data=payload)
-
-    json_object = json.loads(response.text)
-
-    # Process extraction
-    outputs = []
-    for extracted_table in range(len(json_object["Tables"])):
-        # Process extracted table
-        df = pd.DataFrame.from_dict(
-            json_object["Tables"][extracted_table]["TableJson"], orient="index"
-        )
-        df.index = df.index.map(int)
-        df = df.sort_index(axis=0)
-
-        try:
-            # Process confidence indices
-            df_conf = pd.DataFrame.from_dict(
-                json_object["Tables"][extracted_table]["TableConfidence"], orient="index"
-            )
-            df_conf.index = df_conf.index.map(int)
-            df_conf = df_conf.sort_index(axis=0)
-            outputs.append((df, df_conf))
-        except KeyError:
-            outputs.append((df, None))
-    return outputs
-
-
-def display_pdf(fs: S3FileSystem, s3_path: str):
-    """
-    Display PDF.
-
-    Args:
-        fs (S3FileSystem): S3 file system.
-        s3_path (str): S3 path.
-    """
-    with fs.open(s3_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
-
-    # Embed PDF in HTML
-    pdf_display = f'<embed id="pdfViewer" src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000" type="application/pdf">'
-
-    # Display file
-    return st.markdown(pdf_display, unsafe_allow_html=True)
 
 
 def read_excel_from_s3(

@@ -6,15 +6,15 @@ import streamlit as st
 from ca_query.querier import DocumentQuerier
 import os
 from utils import (
-    get_file_system,
     check_siren_length,
     check_availability,
     download_pdf,
-    upload_pdf_to_s3,
+    get_file_system,
     read_pdf_from_s3,
-    extract_table,
-    sidebar_content,
+    upload_pdf_to_s3,
 )
+from extraction import extract_tables, extract_tables_transformer
+from streamlit_utils import sidebar_content
 import requests
 from constants import (
     PDF_SAMPLES_PATH,
@@ -23,7 +23,6 @@ from constants import (
     EXTRACT_TABLE_CONFIDENCES_PATH,
 )
 import fitz
-import pandas as pd
 
 
 st.set_page_config(layout="wide", page_title="Nouvelle extraction", page_icon="📊")
@@ -113,7 +112,6 @@ if st.session_state["button"]:
                             # Else run page selection and persist the selected page
                             else:
                                 document = fitz.open(stream=PDFbyte, filetype="pdf")
-                                # TODO: put extraction in a function
                                 # TODO: There can be multiple pages sometimes
                                 # TODO: implement this possibility
                                 page_selection_url = (
@@ -167,15 +165,12 @@ if st.session_state["button"]:
                                     else:
                                         text_placeholder.write("Extraction en cours...")
                                         # Table extraction
-                                        extraction_url = "https://extraction-cs.lab.sspcloud.fr/extract"
-                                        files = {"pdf_page": document.tobytes()}
-                                        response = requests.post(
-                                            url=extraction_url, files=files
+                                        table_transformer_output = (
+                                            extract_tables_transformer(document)
                                         )
-                                        # TODO: handle errors using result field
-                                        tables = response.json()["tables"]
-                                        for table_idx, table in enumerate(tables):
-                                            df = pd.DataFrame.from_dict(table)
+                                        for table_idx, df in enumerate(
+                                            table_transformer_output
+                                        ):
                                             # Save to persistent storage
                                             with fs.open(
                                                 os.path.join(
@@ -186,7 +181,7 @@ if st.session_state["button"]:
                                             ) as f:
                                                 df.to_csv(f)
                                         text_placeholder.write(
-                                            f"Extraction de {len(tables)} effectuée: "
+                                            f"Extraction de {len(table_transformer_output)} effectuée: "
                                             f"accédez-y grâce à l'onglet 'Extractions disponibles'."
                                         )
 
@@ -221,7 +216,7 @@ if st.session_state["button"]:
                                         )
                                     else:
                                         text_placeholder.write("Extraction en cours...")
-                                        outputs = extract_table(document)
+                                        outputs = extract_tables(document)
                                         for table_idx, (df, df_conf) in enumerate(
                                             outputs
                                         ):
