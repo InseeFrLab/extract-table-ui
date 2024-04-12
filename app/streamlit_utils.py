@@ -36,6 +36,7 @@ def sidebar_content():
     """
     Add side bar content for ExtractTable authentication.
     """
+    # Add ExtractTable token input
     if "auth_token" not in st.session_state:
         st.session_state.auth_token = None
     token = st.sidebar.text_input("ExtractTable token", type="password", key="token")
@@ -44,3 +45,22 @@ def sidebar_content():
             st.session_state.auth_token = token
             remaining_credits = get_extract_table_credits(token)
             st.sidebar.write(f"Crédits restants: {remaining_credits}")
+
+    # Add INPI credentials input
+    if 'inpi_auth' not in st.session_state:
+        st.session_state.inpi_auth = False
+    if "inpi_credentials" not in st.session_state:
+        st.session_state.credentials = {}
+    inpi_username = st.sidebar.text_input("Nom d'utilisateur INPI", key="inpi_username")
+    inpi_password = st.sidebar.text_input("Mot de passe INPI", type="password", key="inpi_password")
+    if st.sidebar.button("Authentification INPI"):
+        if inpi_username and inpi_password:
+            st.session_state.inpi_credentials = {
+                "username": inpi_username,
+                "password": inpi_password,
+            }
+            st.sidebar.write("Credentials INPI renseignés.")
+            # TODO: implement test to check credentials work
+            # TODO: if test passes, modify session state
+            if True:
+                st.session_state.inpi_auth = True
