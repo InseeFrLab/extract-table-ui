@@ -1,5 +1,4 @@
 import streamlit as st
-from utils import sidebar_content
 
 
 st.set_page_config(
@@ -7,7 +6,6 @@ st.set_page_config(
     page_title="Accueil",
     page_icon="👋",
 )
-sidebar_content()
 st.write("# Application")
 
 st.markdown(
