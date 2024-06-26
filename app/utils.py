@@ -79,6 +79,16 @@ def get_file_system():
     )
 
 
+@st.cache_resource(ttl=3600)
+def get_querier():
+    """
+    Get document querier.
+    """
+    return DocumentQuerier(
+        os.environ["TEST_INPI_USERNAME"], os.environ["TEST_INPI_PASSWORD"]
+    )
+
+
 def check_siren_length(siren: str) -> bool:
     """
     Check firm identifier has correct length.

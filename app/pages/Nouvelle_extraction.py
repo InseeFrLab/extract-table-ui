@@ -3,7 +3,6 @@ Page for new extractions.
 """
 
 import streamlit as st
-from ca_query.querier import DocumentQuerier
 import os
 from utils import (
     check_siren_length,
@@ -12,6 +11,7 @@ from utils import (
     get_file_system,
     read_pdf_from_s3,
     upload_pdf_to_s3,
+    get_querier,
 )
 from extraction import extract_tables, extract_tables_transformer
 from streamlit_utils import sidebar_content
@@ -39,9 +39,7 @@ st.write(
 # Initialize cached resources
 fs = get_file_system()
 # Document querier - requires user name and password
-document_querier = DocumentQuerier(
-    os.environ["TEST_INPI_USERNAME"], os.environ["TEST_INPI_PASSWORD"]
-)
+document_querier = get_querier()
 
 # Allow users to input year
 year = st.text_area(
