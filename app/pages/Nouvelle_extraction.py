@@ -244,3 +244,6 @@ if st.session_state["button"]:
                         except ValueError as e:
                             # Print error message.
                             st.write(str(e))
+
+                else : 
+                    st.write(f"Aucun document disponible pour le Siren {company_id}.")
