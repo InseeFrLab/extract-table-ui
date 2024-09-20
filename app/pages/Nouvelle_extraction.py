@@ -245,5 +245,5 @@ if st.session_state["button"]:
                             # Print error message.
                             st.write(str(e))
 
-                else : 
+                else: 
                     st.write(f"Aucun document disponible pour le Siren {company_id}.")
