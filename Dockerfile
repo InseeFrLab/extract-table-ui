@@ -8,8 +8,9 @@ FROM $BASE_IMAGE
 
 WORKDIR /app
 
-ENV DEPLOYMENT_VERSION $GIT_VERSION_TAG
+ENV DEPLOYMENT_VERSION=${GIT_VERSION_TAG}
 
+RUN "echo ${DEPLOYMENT_VERSION}"
 
 RUN apt-get update && apt-get install -y \
     build-essential \
