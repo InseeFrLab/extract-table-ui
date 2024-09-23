@@ -11,6 +11,6 @@ st.write("# Application")
 st.markdown(
     """
     Récupération des comptes annuels des entreprises et extraction
-    du tableau des filiales et participations.
+    du tableau des filiales et participations. Version 0.0.2 de l'application
     """
 )
