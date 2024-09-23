@@ -1,9 +1,14 @@
 ARG BASE_IMAGE=python:3.11-slim
+# Passed from Github Actions
+ARG GIT_VERSION_TAG=unspecified
+ARG GIT_COMMIT_MESSAGE=unspecified
+ARG GIT_VERSION_HASH=unspecified
+
 FROM $BASE_IMAGE
 
 WORKDIR /app
 
-ENV DEPLOYMENT_VERSION ${DEPLOYMENT_VERSION}
+ENV DEPLOYMENT_VERSION $GIT_VERSION_TAG
 
 
 RUN apt-get update && apt-get install -y \
