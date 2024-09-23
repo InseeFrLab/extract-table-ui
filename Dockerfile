@@ -10,7 +10,7 @@ WORKDIR /app
 
 ENV DEPLOYMENT_VERSION=${GIT_VERSION_TAG}
 
-RUN "echo ${DEPLOYMENT_VERSION}"
+RUN echo "${DEPLOYMENT_VERSION}"
 
 RUN apt-get update && apt-get install -y \
     build-essential \
