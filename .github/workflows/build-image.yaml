@@ -6,9 +6,6 @@ on:
       - main
     tags:
       - "*"
-    paths:
-      - requirements.txt
-      - Dockerfile
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -52,8 +49,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: inseefrlab/extract-table-ui:v0.0.1
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
