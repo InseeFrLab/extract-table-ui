@@ -3,6 +3,9 @@ FROM $BASE_IMAGE
 
 WORKDIR /app
 
+ENV DEPLOYMENT_VERSION ${DEPLOYMENT_VERSION}
+
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
