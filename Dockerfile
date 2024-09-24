@@ -8,9 +8,10 @@ FROM $BASE_IMAGE
 
 WORKDIR /app
 
+# Set the tag version as an environment variable for the runtime
 ENV DEPLOYMENT_VERSION=${GIT_VERSION_TAG}
 
-RUN echo "${DEPLOYMENT_VERSION}"
+RUN echo "Deployment version is: ${DEPLOYMENT_VERSION}"
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -27,6 +28,7 @@ COPY app/ .
 
 EXPOSE 8501
 
+# Healthcheck command
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 
 ENTRYPOINT ["streamlit", "run", "Accueil.py", "--server.port=8501", "--server.address=0.0.0.0"]
