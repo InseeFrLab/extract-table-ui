@@ -11,6 +11,8 @@ st.write("# Application")
 
 version_number = os.getenv("DEPLOYMENT_VERSION", "latest")
 
+print(version_number)
+
 st.markdown(
     f"""
     Récupération des comptes annuels des entreprises et extraction
