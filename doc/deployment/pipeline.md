@@ -21,6 +21,9 @@ Deux dépôts interagissent ensemble pour permettre de mettre à jour l'applicat
 
 Le second dépôt est surveillé par notre `ArgoCD` disponible dans le namespace `projet-extraction-tableaux`. Celui-ci fait la passerelle entre l'image `Docker` (la configuration machine qui permettra de faire tourner notre application sur des serveurs _ad hoc_ quand on le voudra) et la version en production sur https://extract-table-ui.lab.sspcloud.fr/. Le dépôt `GitOps` dit à Argo ce qu'il doit faire: quelle image Docker il faut utiliser, quels paramètres derrière (S3, MLFlow, etc.) et où mettre à disposition la version de production. 
 
+Une version résumée du _pipeline_ est faite ci-dessous:
+
+![](deployment.png)
 
 ## 1. Effectuer un _tag_ sur ce dépôt pour figer une version
 
