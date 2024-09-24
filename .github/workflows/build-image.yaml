@@ -57,3 +57,7 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
+
+      - name: Debug build arguments
+        run: |
+            echo "Tag: ${{ steps.meta.outputs.tags }}"

@@ -9,6 +9,7 @@ FROM $BASE_IMAGE
 WORKDIR /app
 
 # Set the tag version as an environment variable for the runtime
+ARG GIT_VERSION_TAG
 ENV DEPLOYMENT_VERSION=${GIT_VERSION_TAG}
 
 RUN echo "Deployment version is: ${DEPLOYMENT_VERSION}"
